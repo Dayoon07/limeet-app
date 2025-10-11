@@ -1,127 +1,127 @@
 * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-    body {
-        font-family: 'Segoe UI', sans-serif;
-        background: #1a1a2e;
-        color: #fff;
-        padding: 20px;
-    }
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #1a1a2e;
+    color: #fff;
+    padding: 20px;
+}
 
-    .container {
-        max-width: 1400px;
-        margin: 0 auto;
-    }
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
 
-    h1 {
-        text-align: center;
-        margin-bottom: 30px;
-        color: #00d4ff;
-    }
+h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #00d4ff;
+}
 
-    .controls {
-        background: #16213e;
-        padding: 20px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        display: flex;
-        gap: 15px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
+.controls {
+    background: #16213e;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
 
-    input {
-        flex: 1;
-        min-width: 200px;
-        padding: 12px;
-        border: 2px solid #00d4ff;
-        border-radius: 8px;
-        background: #0f3460;
-        color: #fff;
-        font-size: 16px;
-    }
+input {
+    flex: 1;
+    min-width: 200px;
+    padding: 12px;
+    border: 2px solid #00d4ff;
+    border-radius: 8px;
+    background: #0f3460;
+    color: #fff;
+    font-size: 16px;
+}
 
-    input:focus {
-        outline: none;
-        border-color: #00ffff;
-    }
+input:focus {
+    outline: none;
+    border-color: #00ffff;
+}
 
-    button {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 8px;
-        background: #00d4ff;
-        color: #1a1a2e;
-        font-size: 16px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.3s;
-    }
+button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    background: #00d4ff;
+    color: #1a1a2e;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s;
+}
 
-    button:hover {
-        background: #00ffff;
-        transform: translateY(-2px);
-    }
+button:hover {
+    background: #00ffff;
+    transform: translateY(-2px);
+}
 
-    button:disabled {
-        background: #555;
-        cursor: not-allowed;
-        transform: none;
-    }
+button:disabled {
+    background: #555;
+    cursor: not-allowed;
+    transform: none;
+}
 
-    .status {
-        padding: 10px 20px;
-        background: #0f3460;
-        border-radius: 8px;
-        font-size: 14px;
-    }
+.status {
+    padding: 10px 20px;
+    background: #0f3460;
+    border-radius: 8px;
+    font-size: 14px;
+}
 
-    .videos-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 20px;
-    }
+.videos-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
 
-    .video-wrapper {
-        position: relative;
-        background: #16213e;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
-    }
+.video-wrapper {
+    position: relative;
+    background: #16213e;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 212, 255, 0.2);
+}
 
-    video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
 
-    .video-label {
-        position: absolute;
-        bottom: 10px;
-        left: 10px;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 8px 12px;
-        border-radius: 6px;
-        font-size: 14px;
-        font-weight: bold;
-    }
+.video-label {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+}
 
-    #localVideo {
-        transform: scaleX(-1);
-    }
+#localVideo {
+    transform: scaleX(-1);
+}
 
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        color: #888;
-    }
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+}
 
-    .empty-state h2 {
-        margin-bottom: 10px;
-        color: #00d4ff;
-    }
+.empty-state h2 {
+    margin-bottom: 10px;
+    color: #00d4ff;
+}
