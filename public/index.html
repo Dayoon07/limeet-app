@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC 화상회의</title>
+    <link rel="stylesheet" href="/public/css/style.css">
+</head>
+<body>
+
+    <div class="container">
+        <h1>🎥 WebRTC 화상회의</h1>
+        <div class="controls">
+            <input type="text" id="roomInput" placeholder="방 이름 입력 (예: room123)">
+            <button id="joinBtn">입장하기</button>
+            <button id="leaveBtn" disabled>나가기</button>
+            <div class="status" id="status">대기 중...</div>
+        </div>
+        <div id="videosContainer" class="videos-container">
+            <div class="empty-state">
+                <h2>방에 입장하세요</h2>
+                <p>위에서 방 이름을 입력하고 입장 버튼을 클릭하세요</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/public/js/script.js"></script>
+
+</body>
+</html>
