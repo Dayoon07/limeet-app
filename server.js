@@ -125,11 +125,11 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log("+---------------------------------------+");
-    console.log(`|                                       |`);
-    console.log(`|                                       |`);
-    console.log(`|         http://localhost:3000         |`);
-    console.log(`|                                       |`);
-    console.log(`|                                       |`);
-    console.log("+---------------------------------------+");
+    console.log("+----------------------------------------+");
+    console.log(`|                                        |`);
+    console.log(`|                                        |`);
+    console.log(`|         http://localhost:${PORT}       |`);
+    console.log(`|                                        |`);
+    console.log(`|                                        |`);
+    console.log("+----------------------------------------+");
 });
