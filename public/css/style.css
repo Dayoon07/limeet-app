@@ -15,7 +15,6 @@ body {
 .app-container {
     width: 100%;
     height: 100vh;
-    /* background: rgba(255, 255, 255, 0.95); */
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     display: flex;
     overflow: hidden;
@@ -87,6 +86,13 @@ body {
     border-color: #667eea;
 }
 
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85em;
+}
+
 .btn-join {
     width: 100%;
     padding: 15px;
@@ -150,7 +156,7 @@ body {
 .videos-grid {
     flex: 1;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 2fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 4fr));
     gap: 15px;
     padding: 15px;
     overflow-y: auto;
@@ -166,12 +172,23 @@ body {
     min-height: 0;
 }
 
+/* 화면 공유 비디오 전용 스타일 */
+.video-wrapper.screen-share {
+    border: 3px solid #3498db;
+    box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);
+}
+
 .video-wrapper video {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    /** 거울모드 ↓ */
     transform: scaleX(-1);
+}
+
+/* 화면 공유 비디오는 거울 모드 해제 */
+.video-wrapper.screen-share video {
+    transform: none;
+    object-fit: contain;
 }
 
 .video-label {
@@ -183,6 +200,19 @@ body {
     padding: 5px 10px;
     border-radius: 5px;
     font-size: 14px;
+}
+
+/* 화면 공유 라벨 스타일 */
+.video-label.screen-share {
+    background: rgba(52, 152, 219, 0.9);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.video-label.screen-share::before {
+    content: "🖥️";
+    font-size: 16px;
 }
 
 .video-off-overlay {
@@ -254,6 +284,15 @@ body {
 
 .control-btn.danger:hover {
     background: #c0392b;
+}
+
+/* 화면 공유 버튼 활성화 시 */
+.control-btn.screen-sharing {
+    background: #3498db;
+}
+
+.control-btn.screen-sharing:hover {
+    background: #2980b9;
 }
 
 /* 채팅 뱃지 */

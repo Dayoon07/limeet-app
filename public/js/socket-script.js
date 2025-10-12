@@ -6,12 +6,35 @@ import { chatTextDateFormat } from "./utils/formatDate.js";
 const socket = io();
 const peerConnections = {};
 let localStream = null;
+let screenStream = null;
 let currentRoom = null;
+let currentRoomTitle = '';
+let currentRoomCode = '';
 let nickname = '';
 let isMicOn = true;
 let isCameraOn = true;
+let isScreenSharing = false;
 let unreadMessages = 0;
 let isMobile = window.innerWidth <= 768;
+
+// UUID 생성 함수
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+// 짧은 코드 생성 함수 (6자리)
+function generateShortCode() {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
 
 const configuration = {
     iceServers: [
@@ -28,11 +51,17 @@ const configuration = {
 const lobby = document.getElementById('lobby');
 const mainContent = document.getElementById('mainContent');
 const nicknameInput = document.getElementById('nicknameInput');
-const roomInput = document.getElementById('roomInput');
+const roomTitleInput = document.getElementById('roomTitleInput');
+const roomCodeInput = document.getElementById('roomCodeInput');
 const joinBtn = document.getElementById('joinBtn');
+const roomInfo = document.getElementById('roomInfo');
+const displayRoomTitle = document.getElementById('displayRoomTitle');
+const displayRoomCode = document.getElementById('displayRoomCode');
+const copyCodeBtn = document.getElementById('copyCodeBtn');
 const leaveBtn = document.getElementById('leaveBtn');
 const micBtn = document.getElementById('micBtn');
 const cameraBtn = document.getElementById('cameraBtn');
+const screenShareBtn = document.getElementById('screenShareBtn');
 const chatBtn = document.getElementById('chatBtn');
 const videosGrid = document.getElementById('videosGrid');
 const roomName = document.getElementById('roomName');
@@ -55,6 +84,38 @@ const chatBadge = document.getElementById('chatBadge');
 // 화면 크기 감지
 window.addEventListener('resize', () => isMobile = window.innerWidth <= 768);
 
+// URL에서 방 코드 확인 (페이지 로드 시)
+window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (code && roomCodeInput) {
+        roomCodeInput.value = code.toUpperCase();
+    }
+});
+
+// 방 코드 복사
+if (copyCodeBtn) {
+    copyCodeBtn.addEventListener('click', () => {
+        const code = displayRoomCode.textContent;
+        
+        // URL 생성
+        const url = `${window.location.origin}${window.location.pathname}?code=${code}`;
+        
+        navigator.clipboard.writeText(url).then(() => {
+            const originalText = copyCodeBtn.textContent;
+            copyCodeBtn.textContent = '복사됨!';
+            copyCodeBtn.style.background = '#27ae60';
+            
+            setTimeout(() => {
+                copyCodeBtn.textContent = originalText;
+                copyCodeBtn.style.background = '#667eea';
+            }, 2000);
+        }).catch(err => {
+            alert('복사 실패: ' + err);
+        });
+    });
+}
+
 // 로컬 비디오 시작
 async function startLocalVideo() {
     try {
@@ -66,8 +127,8 @@ async function startLocalVideo() {
             audio: true
         });
 
-        addVideoElement('local', localStream, nickname + ' (나)');
-        roomName.textContent = currentRoom;
+        addVideoElement('local', localStream, nickname + ' (나)', false);
+        roomName.textContent = currentRoomTitle || currentRoomCode;
     } catch (err) {
         console.error('카메라 접근 오류:', err);
         alert('카메라와 마이크 권한이 필요합니다.');
@@ -75,12 +136,15 @@ async function startLocalVideo() {
 }
 
 // 비디오 요소 추가
-function addVideoElement(id, stream, label) {
+function addVideoElement(id, stream, label, isScreen = false) {
     let wrapper = document.getElementById(`wrapper-${id}`);
     
     if (!wrapper) {
         wrapper = document.createElement('div');
         wrapper.className = 'video-wrapper';
+        if (isScreen) {
+            wrapper.classList.add('screen-share');
+        }
         wrapper.id = `wrapper-${id}`;
         
         const video = document.createElement('video');
@@ -88,10 +152,13 @@ function addVideoElement(id, stream, label) {
         video.srcObject = stream;
         video.autoplay = true;
         video.playsInline = true;
-        if (id === 'local') video.muted = true;
+        if (id === 'local' || id === 'local-screen') video.muted = true;
         
         const labelEl = document.createElement('div');
         labelEl.className = 'video-label';
+        if (isScreen) {
+            labelEl.classList.add('screen-share');
+        }
         labelEl.textContent = label;
         
         const offOverlay = document.createElement('div');
@@ -109,14 +176,36 @@ function addVideoElement(id, stream, label) {
     }
 }
 
+// 화면 공유 비디오 요소 제거
+function removeVideoElement(id) {
+    const wrapper = document.getElementById(`wrapper-${id}`);
+    if (wrapper) {
+        wrapper.style.transition = 'opacity 0.3s';
+        wrapper.style.opacity = '0';
+        setTimeout(() => wrapper.remove(), 300);
+    }
+}
+
 // Peer Connection 생성
 function createPeerConnection(userId, userName) {
     const pc = new RTCPeerConnection(configuration);
 
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    // 화면 공유 중이면 화면 공유 스트림 전송, 아니면 로컬 스트림 전송
+    const streamToSend = isScreenSharing ? screenStream : localStream;
+    streamToSend.getTracks().forEach(track => pc.addTrack(track, streamToSend));
 
     pc.ontrack = (event) => {
-        addVideoElement(userId, event.streams[0], userName);
+        const stream = event.streams[0];
+        const videoTrack = stream.getVideoTracks()[0];
+        
+        // 화면 공유인지 확인 (contentHint로 구분)
+        const isScreenTrack = videoTrack && videoTrack.contentHint === 'detail';
+        
+        if (isScreenTrack) {
+            addVideoElement(`${userId}-screen`, stream, `${userName}의 화면`, true);
+        } else {
+            addVideoElement(userId, stream, userName, false);
+        }
     };
 
     pc.onicecandidate = (event) => {
@@ -131,31 +220,163 @@ function createPeerConnection(userId, userName) {
     return pc;
 }
 
+// 화면 공유 시작
+async function startScreenShare() {
+    try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+                cursor: 'always',
+                displaySurface: 'monitor'
+            },
+            audio: false
+        });
+
+        // 화면 공유 트랙에 contentHint 설정
+        const videoTrack = screenStream.getVideoTracks()[0];
+        if (videoTrack) {
+            videoTrack.contentHint = 'detail';
+        }
+
+        // 화면 공유 비디오 추가
+        addVideoElement('local-screen', screenStream, nickname + '의 화면 (나)', true);
+
+        // 모든 피어에게 화면 공유 스트림 전송
+        for (let userId in peerConnections) {
+            const pc = peerConnections[userId];
+            const senders = pc.getSenders();
+            
+            // 기존 비디오 트랙을 화면 공유 트랙으로 교체
+            const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+            if (videoSender) {
+                videoSender.replaceTrack(screenStream.getVideoTracks()[0]);
+            }
+        }
+
+        // 화면 공유가 중지되었을 때 처리
+        screenStream.getVideoTracks()[0].onended = () => {
+            stopScreenShare();
+        };
+
+        isScreenSharing = true;
+        screenShareBtn.classList.add('screen-sharing');
+        
+        // 아이콘 변경
+        screenShareBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                class="lucide lucide-monitor-x">
+                <path d="m14.5 12.5-5-5"/>
+                <path d="m9.5 12.5 5-5"/>
+                <rect width="20" height="14" x="2" y="3" rx="2"/>
+                <path d="M12 17v4"/>
+                <path d="M8 21h8"/>
+            </svg>
+        `;
+
+        // 다른 사용자들에게 화면 공유 시작 알림
+        socket.emit('screen-share-started', { nickname });
+
+    } catch (err) {
+        console.error('화면 공유 오류:', err);
+        if (err.name === 'NotAllowedError') {
+            alert('화면 공유 권한이 거부되었습니다.');
+        } else {
+            alert('화면 공유를 시작할 수 없습니다.');
+        }
+    }
+}
+
+// 화면 공유 중지
+async function stopScreenShare() {
+    if (!screenStream) return;
+
+    // 화면 공유 스트림 정지
+    screenStream.getTracks().forEach(track => track.stop());
+    
+    // 화면 공유 비디오 요소 제거
+    removeVideoElement('local-screen');
+
+    // 모든 피어에게 원래 비디오 트랙으로 복원
+    for (let userId in peerConnections) {
+        const pc = peerConnections[userId];
+        const senders = pc.getSenders();
+        
+        const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
+        if (videoSender && localStream) {
+            videoSender.replaceTrack(localStream.getVideoTracks()[0]);
+        }
+    }
+
+    screenStream = null;
+    isScreenSharing = false;
+    screenShareBtn.classList.remove('screen-sharing');
+    
+    // 아이콘 원래대로
+    screenShareBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+            class="lucide lucide-monitor-up">
+            <path d="m9 10 3-3 3 3"/>
+            <path d="M12 13V7"/>
+            <rect width="20" height="14" x="2" y="3" rx="2"/>
+            <path d="M12 17v4"/>
+            <path d="M8 21h8"/>
+        </svg>
+    `;
+
+    // 다른 사용자들에게 화면 공유 중지 알림
+    socket.emit('screen-share-stopped', { nickname });
+}
+
 // 입장
 joinBtn.addEventListener('click', async () => {
     const nick = nicknameInput.value.trim();
-    const room = roomInput.value.trim();
+    const title = roomTitleInput.value.trim();
+    let code = roomCodeInput.value.trim().toUpperCase();
     
-    if (!nick || !room) {
-        alert('닉네임과 방 이름을 모두 입력하세요');
+    if (!nick) {
+        alert('닉네임을 입력하세요');
         return;
     }
 
+    if (!title && !code) {
+        alert('방 제목을 입력하거나 방 코드를 입력하세요');
+        return;
+    }
+
+    // 코드가 없으면 자동 생성
+    if (!code) {
+        code = generateShortCode();
+    }
+
     nickname = nick;
-    currentRoom = room;
+    currentRoomTitle = title;
+    currentRoomCode = code;
+    currentRoom = code; // 실제 방 ID는 코드 사용
     
     await startLocalVideo();
-    socket.emit('join-room', { roomId: room, nickname: nick });
+    socket.emit('join-room', { 
+        roomId: code, 
+        nickname: nick,
+        roomTitle: title 
+    });
     
     lobby.style.display = 'none';
     mainContent.classList.add('active');
 
     // 모바일이면 채팅 버튼 표시
     if (isMobile) chatBtn.style.display = 'flex';
+
+    addChatMessage('시스템', `새로운 참가자가 방에 입장했습니다. (roomId: ${code})`);
 });
 
 // 나가기
-leaveBtn.addEventListener('click', () => location.reload());
+leaveBtn.addEventListener('click', () => {
+    if (isScreenSharing) {
+        stopScreenShare();
+    }
+    location.reload();
+});
 
 // 마이크 토글
 micBtn.addEventListener('click', () => {
@@ -209,6 +430,15 @@ cameraBtn.addEventListener('click', () => {
     const overlay = document.getElementById('overlay-local');
     if (overlay) {
         overlay.classList.toggle('active', !isCameraOn);
+    }
+});
+
+// 화면 공유 토글
+screenShareBtn.addEventListener('click', () => {
+    if (isScreenSharing) {
+        stopScreenShare();
+    } else {
+        startScreenShare();
     }
 });
 
@@ -308,6 +538,22 @@ socket.on('user-connected', (data) => {
     addChatMessage('시스템', `${data.nickname}님이 입장했습니다.`);
 });
 
+socket.on('room-created', (data) => {
+    // 방이 생성되었을 때 정보 표시
+    currentRoomCode = data.roomCode;
+    currentRoomTitle = data.roomTitle;
+    
+    if (displayRoomTitle && displayRoomCode && roomInfo) {
+        displayRoomTitle.textContent = data.roomTitle || '제목 없음';
+        displayRoomCode.textContent = data.roomCode;
+        roomInfo.style.display = 'block';
+    }
+    
+    // URL 업데이트 (히스토리 추가 없이)
+    const newUrl = `${window.location.pathname}?code=${data.roomCode}`;
+    window.history.replaceState({}, '', newUrl);
+});
+
 socket.on('offer', async (data) => {
     const pc = createPeerConnection(data.from, data.nickname);
     peerConnections[data.from] = pc;
@@ -341,11 +587,20 @@ socket.on('user-disconnected', (data) => {
         delete peerConnections[data.userId];
     }
 
+    // 일반 비디오 제거
     const wrapper = document.getElementById(`wrapper-${data.userId}`);
     if (wrapper) {
         wrapper.style.transition = 'opacity 0.3s';
         wrapper.style.opacity = '0';
         setTimeout(() => wrapper.remove(), 300);
+    }
+    
+    // 화면 공유 비디오 제거
+    const screenWrapper = document.getElementById(`wrapper-${data.userId}-screen`);
+    if (screenWrapper) {
+        screenWrapper.style.transition = 'opacity 0.3s';
+        screenWrapper.style.opacity = '0';
+        setTimeout(() => screenWrapper.remove(), 300);
     }
     
     addChatMessage('시스템', `${data.nickname}님이 퇴장했습니다.`);
@@ -354,3 +609,13 @@ socket.on('user-disconnected', (data) => {
 socket.on('chat-message', (data) => {
     addChatMessage(data.nickname, data.message);
 });
+
+socket.on('screen-share-started', (data) => {
+    addChatMessage('시스템', `${data.nickname}님이 화면 공유를 시작했습니다.`);
+});
+
+socket.on('screen-share-stopped', (data) => {
+    addChatMessage('시스템', `${data.nickname}님이 화면 공유를 중지했습니다.`);
+});
+
+console.log(socket);

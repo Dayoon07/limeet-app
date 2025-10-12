@@ -14,8 +14,9 @@ const io = socketIo(server, {
 
 app.use(express.static('public'));
 
-// 방별 사용자 정보 저장
+// 방별 사용자 정보 및 메타데이터 저장
 const rooms = {};
+const roomMetadata = {}; // 방 제목 등 메타데이터 저장
 
 io.on('connection', (socket) => {
     console.log('새 사용자 연결:', socket.id);
@@ -90,6 +91,30 @@ io.on('connection', (socket) => {
                 timestamp: new Date().toISOString()
             });
             console.log(`[${roomId}](${new Date().toISOString()}) ${data.nickname}: ${data.message}`);
+        }
+    });
+
+    // 화면 공유 시작 알림
+    socket.on('screen-share-started', (data) => {
+        const roomId = socket.currentRoom;
+        if (roomId) {
+            socket.to(roomId).emit('screen-share-started', {
+                nickname: data.nickname,
+                userId: socket.id
+            });
+            console.log(`${data.nickname}(${socket.id})가 화면 공유를 시작했습니다.`);
+        }
+    });
+
+    // 화면 공유 중지 알림
+    socket.on('screen-share-stopped', (data) => {
+        const roomId = socket.currentRoom;
+        if (roomId) {
+            socket.to(roomId).emit('screen-share-stopped', {
+                nickname: data.nickname,
+                userId: socket.id
+            });
+            console.log(`${data.nickname}(${socket.id})가 화면 공유를 중지했습니다.`);
         }
     });
 

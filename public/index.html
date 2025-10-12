@@ -27,10 +27,29 @@
                     <input type="text" id="nicknameInput" placeholder="이름을 입력하세요">
                 </div>
                 <div class="form-group">
-                    <label>방 이름</label>
-                    <input type="text" id="roomInput" placeholder="room123">
+                    <label>방 제목</label>
+                    <input type="text" id="roomTitleInput" placeholder="회의 제목을 입력하세요">
                 </div>
-                <button class="btn-join" id="joinBtn">입장하기</button>
+                <div class="form-group">
+                    <label>방 코드 (선택사항)</label>
+                    <input type="text" id="roomCodeInput" placeholder="방 코드 입력 또는 자동 생성">
+                    <small style="color: #aaa; font-size: 0.85em; margin-top: 5px; display: block;">
+                        비워두면 자동으로 생성됩니다
+                    </small>
+                </div>
+                <button class="btn-join" id="joinBtn">방 만들기 / 입장하기</button>
+                <div id="roomInfo" style="margin-top: 15px; padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; display: none;">
+                    <div style="color: #667eea; font-weight: bold; margin-bottom: 8px;">방 정보</div>
+                    <div style="font-size: 0.9em; color: #555; margin-bottom: 5px;">
+                        제목: <span id="displayRoomTitle" style="font-weight: 600;"></span>
+                    </div>
+                    <div style="font-size: 0.9em; color: #555; display: flex; align-items: center; gap: 10px;">
+                        코드: <span id="displayRoomCode" style="font-weight: 600; font-family: monospace;"></span>
+                        <button id="copyCodeBtn" style="padding: 4px 8px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em;">
+                            복사
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="today"></div>
         </div>
@@ -64,6 +83,17 @@
                             class="lucide lucide-video-icon lucide-video">
                             <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/>
                             <rect x="2" y="6" width="14" height="12" rx="2"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn" id="screenShareBtn" title="화면 공유">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                            class="lucide lucide-monitor-up">
+                            <path d="m9 10 3-3 3 3"/>
+                            <path d="M12 13V7"/>
+                            <rect width="20" height="14" x="2" y="3" rx="2"/>
+                            <path d="M12 17v4"/>
+                            <path d="M8 21h8"/>
                         </svg>
                     </button>
                     <button class="control-btn" id="chatBtn" title="채팅">
