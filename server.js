@@ -89,7 +89,7 @@ io.on('connection', (socket) => {
                 message: data.message,
                 timestamp: new Date().toISOString()
             });
-            console.log(`[${roomId}] ${data.nickname}: ${data.message}`);
+            console.log(`[${roomId}](${new Date().toISOString()}) ${data.nickname}: ${data.message}`);
         }
     });
 
@@ -128,7 +128,7 @@ server.listen(PORT, () => {
     console.log("+----------------------------------------+");
     console.log(`|                                        |`);
     console.log(`|                                        |`);
-    console.log(`|         http://localhost:${PORT}       |`);
+    console.log(`|         http://localhost:${PORT}          |`);
     console.log(`|                                        |`);
     console.log(`|                                        |`);
     console.log("+----------------------------------------+");

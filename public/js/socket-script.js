@@ -1,5 +1,7 @@
 "use strict";
 
+import { chatTextDateFormat } from "./utils/formatDate.js";
+
 // 전역 변수
 const socket = io();
 const peerConnections = {};
@@ -52,16 +54,6 @@ const chatBadge = document.getElementById('chatBadge');
 
 // 화면 크기 감지
 window.addEventListener('resize', () => isMobile = window.innerWidth <= 768);
-
-window.addEventListener("load", () => {
-    document.querySelector(".lobby").style.backgroundImage =
-        `url(https://picsum.photos/seed/${Math.random().toString(36).substring(7)}/1980/1080)`;
-    document.querySelector(".lobby").style.backgroundSize = "cover";
-    document.querySelector(".lobby").style.backgroundRepeat = "no-repeat";
-    document.querySelector(".lobby").style.backgroundPosition = "cemter";
-    setTimeout(() => document.getElementById("loading").style.display = "none", 1500);
-    console.log("디스플레이 로딩 완료");
-});
 
 // 로컬 비디오 시작
 async function startLocalVideo() {
@@ -277,7 +269,7 @@ function addChatMessage(sender, message, isOwn = false) {
     const msgEl = document.createElement('div');
     msgEl.className = `message ${isOwn ? 'own' : 'other'}`;
     msgEl.innerHTML = `
-        <div class="sender">${sender}</div>
+        <div class="sender">${isOwn ? "나" : sender} (${chatTextDateFormat(new Date())})</div>
         <div>${message}</div>
     `;
     
