@@ -3,31 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="shortcut icon" href="https://web-rtc-meet.onrender.com/img/web-rtc-meet-icon.ico" type="image/x-icon">    
+    <link rel="shortcut icon" href="https://web-rtc-meet.onrender.com/img/web-rtc-meet-icon.ico" type="image/x-icon">
     <link rel="stylesheet" href="https://web-rtc-meet.onrender.com/css/style.css">
-
-    <title>WebRTC 화상회의</title>
+    <title>WebRTC 화상회의 Pro</title>
 </head>
 <body>
 
-    <div class="container">
-        <h1>🎥 WebRTC 화상회의</h1>
-        <div class="controls">
-            <input type="text" id="roomInput" placeholder="방 이름 입력 (예: room123)">
-            <button id="joinBtn">입장하기</button>
-            <button id="leaveBtn" disabled>나가기</button>
-            <div class="status" id="status">대기 중...</div>
+    <div id="loading" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: white; display: flex; justify-content: center; align-items: center; z-index: 9999;">
+        Loading...
+	</div>
+
+    <div class="app-container">
+        <!-- 로비 화면 -->
+        <div class="lobby" id="lobby">
+            <div class="lobby-form">
+                <div class="form-logo">
+                    <img src="https://web-rtc-meet.onrender.com/img/web-rtc-meet-icon.ico" alt="..." style="width: 36px; height: 36px;">
+                    <h2>WebRTC Meet Pro</h2>
+                </div>
+                <div class="form-group">
+                    <label>닉네임</label>
+                    <input type="text" id="nicknameInput" placeholder="이름을 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label>방 이름</label>
+                    <input type="text" id="roomInput" placeholder="room123">
+                </div>
+                <button class="btn-join" id="joinBtn">입장하기</button>
+            </div>
         </div>
-        <div id="videosContainer" class="videos-container">
-            <div class="empty-state">
-                <h2>방에 입장하세요</h2>
-                <p>위에서 방 이름을 입력하고 입장 버튼을 클릭하세요</p>
+
+        <!-- 메인 화면 -->
+        <div class="main-content" id="mainContent">
+            <!-- 비디오 섹션 -->
+            <div class="video-section">
+                <div class="header">
+                    <div class="room-info">
+                        <h2 id="roomName">Room</h2>
+                        <div class="participants">참가자: <span id="participantCount">1</span>명</div>
+                    </div>
+                </div>
+                
+                <div class="videos-grid" id="videosGrid"></div>
+                
+                <div class="controls-bar">
+                    <button class="control-btn active" id="micBtn" title="마이크">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                            class="lucide lucide-mic-icon lucide-mic">
+                            <path d="M12 19v3"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <rect x="9" y="2" width="6" height="13" rx="3"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn active" id="cameraBtn" title="카메라">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                            class="lucide lucide-video-icon lucide-video">
+                            <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/>
+                            <rect x="2" y="6" width="14" height="12" rx="2"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn" id="chatBtn" title="채팅">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                            class="lucide lucide-message-circle-more-icon lucide-message-circle-more">
+                            <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
+                            <path d="M8 12h.01"/>
+                            <path d="M12 12h.01"/>
+                            <path d="M16 12h.01"/>
+                        </svg>
+                        <span class="chat-badge" id="chatBadge">0</span>
+                    </button>
+                    <button class="control-btn danger" id="leaveBtn" title="나가기">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                            class="lucide lucide-log-out-icon lucide-log-out">
+                            <path d="m16 17 5-5-5-5"/>
+                            <path d="M21 12H9"/>
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 채팅 섹션 (데스크톱) -->
+            <div class="chat-section" id="chatSection">
+                <div class="chat-header">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                        class="lucide lucide-message-circle-more-icon lucide-message-circle-more" style="margin-right: 10px;">
+                        <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
+                        <path d="M8 12h.01"/>
+                        <path d="M12 12h.01"/>
+                        <path d="M16 12h.01"/>
+                    </svg>
+                    채팅
+                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-input-area">
+                    <input type="text" id="chatInput" placeholder="메시지 입력...">
+                    <button id="sendBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                            class="lucide lucide-send-icon lucide-send">
+                            <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
+                            <path d="m21.854 2.147-10.94 10.939"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 채팅 모달 (모바일) -->
+    <div class="chat-modal" id="chatModal">
+        <div class="chat-modal-content">
+            <div class="chat-modal-header">
+                <h3 style="display: flex; align-items: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                        class="lucide lucide-message-circle-more-icon lucide-message-circle-more">
+                        <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
+                        <path d="M8 12h.01"/>
+                        <path d="M12 12h.01"/>
+                        <path d="M16 12h.01"/>
+                    </svg>
+                    <span style="margin-left: 10px;">채팅</span>
+                </h3>
+                <button class="close-modal" id="closeModal">&times;</button>
+            </div>
+            <div class="chat-messages" id="chatMessagesModal"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInputModal" placeholder="메시지 입력...">
+                <button id="sendBtnModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+                        class="lucide lucide-send-icon lucide-send">
+                        <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
+                        <path d="m21.854 2.147-10.94 10.939"/>
+                    </svg>
+                </button>
             </div>
         </div>
     </div>
 
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
     <script src="https://web-rtc-meet.onrender.com/js/script.js"></script>
-
+    
 </body>
 </html>

@@ -13,21 +13,44 @@ const io = socketIo(server, {
 });
 
 app.use(express.static('public'));
-const rooms = {};   // 사용자 관리를 위한 방
+
+// 방별 사용자 정보 저장
+const rooms = {};
 
 io.on('connection', (socket) => {
     console.log('새 사용자 연결:', socket.id);
 
-    // 방 입장하면
-    socket.on('join-room', (roomId) => {
+    // 방 입장 (닉네임 포함)
+    socket.on('join-room', (data) => {
+        const { roomId, nickname } = data;
         socket.join(roomId);
 
-        if (!rooms[roomId]) rooms[roomId] = [];                 // 방 정보 초기화
-        socket.to(roomId).emit('user-connected', socket.id);    // 기존 사용자들에게 새 사용자 알림
-        socket.emit('existing-users', rooms[roomId]);           // 새 사용자에게 기존 사용자 목록 전송
-        rooms[roomId].push(socket.id);                          // 방에 사용자 추가
+        // 방 초기화
+        if (!rooms[roomId]) {
+            rooms[roomId] = [];
+        }
 
-        console.log(`${socket.id}가 방 ${roomId}에 입장. 현재 인원: ${rooms[roomId].length}`);
+        // 사용자 정보 저장
+        const userInfo = {
+            id: socket.id,
+            nickname: nickname
+        };
+
+        // 기존 사용자들에게 새 사용자 알림
+        socket.to(roomId).emit('user-connected', {
+            userId: socket.id,
+            nickname: nickname
+        });
+
+        // 새 사용자에게 기존 사용자 목록 전송
+        socket.emit('existing-users', rooms[roomId]);
+
+        // 방에 사용자 추가
+        rooms[roomId].push(userInfo);
+        socket.currentRoom = roomId;
+        socket.nickname = nickname;
+
+        console.log(`${nickname}(${socket.id})가 방 ${roomId}에 입장. 현재 인원: ${rooms[roomId].length}`);
     });
 
     // WebRTC Offer 전달
@@ -35,7 +58,8 @@ io.on('connection', (socket) => {
         console.log(`Offer 전달: ${socket.id} -> ${data.target}`);
         io.to(data.target).emit('offer', {
             offer: data.offer,
-            from: socket.id
+            from: socket.id,
+            nickname: socket.nickname
         });
     });
 
@@ -56,23 +80,44 @@ io.on('connection', (socket) => {
         });
     });
 
+    // 채팅 메시지 전달
+    socket.on('chat-message', (data) => {
+        const roomId = socket.currentRoom;
+        if (roomId) {
+            socket.to(roomId).emit('chat-message', {
+                nickname: data.nickname,
+                message: data.message,
+                timestamp: new Date().toISOString()
+            });
+            console.log(`[${roomId}] ${data.nickname}: ${data.message}`);
+        }
+    });
+
     // 연결 해제
     socket.on('disconnect', () => {
         console.log('사용자 연결 해제:', socket.id);
 
         // 모든 방에서 사용자 제거
         for (let roomId in rooms) {
-            const index = rooms[roomId].indexOf(socket.id);
-            if (index !== -1) {
-                rooms[roomId].splice(index, 1);
-                socket.to(roomId).emit('user-disconnected', socket.id);
+            const userIndex = rooms[roomId].findIndex(user => user.id === socket.id);
+            
+            if (userIndex !== -1) {
+                const user = rooms[roomId][userIndex];
+                rooms[roomId].splice(userIndex, 1);
+                
+                // 다른 사용자들에게 퇴장 알림
+                socket.to(roomId).emit('user-disconnected', {
+                    userId: socket.id,
+                    nickname: user.nickname
+                });
                 
                 // 방이 비었으면 삭제
                 if (rooms[roomId].length === 0) {
                     delete rooms[roomId];
+                    console.log(`방 ${roomId} 삭제됨`);
+                } else {
+                    console.log(`${user.nickname}이(가) 방 ${roomId}에서 퇴장. 남은 인원: ${rooms[roomId].length}`);
                 }
-                
-                console.log(`방 ${roomId}에서 퇴장. 남은 인원: ${rooms[roomId]?.length || 0}`);
             }
         }
     });
@@ -80,9 +125,11 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log("+--------------------------------------+");
-    console.log(`|                                      |`);
-    console.log(`|      http://localhost:${PORT}        |`);
-    console.log(`|                                      |`);
-    console.log("+--------------------------------------+");
+    console.log("+---------------------------------------+");
+    console.log(`|                                       |`);
+    console.log(`|                                       |`);
+    console.log(`|         http://localhost:3000         |`);
+    console.log(`|                                       |`);
+    console.log(`|                                       |`);
+    console.log("+---------------------------------------+");
 });

@@ -1,9 +1,16 @@
+"use strict";
+
+// 전역 변수
 const socket = io();
 const peerConnections = {};
 let localStream = null;
 let currentRoom = null;
+let nickname = '';
+let isMicOn = true;
+let isCameraOn = true;
+let unreadMessages = 0;
+let isMobile = window.innerWidth <= 768;
 
-// ICE 서버 설정 (Google 무료 STUN 서버)
 const configuration = {
     iceServers: [
         {
@@ -15,11 +22,46 @@ const configuration = {
     ]
 };
 
+// DOM 요소
+const lobby = document.getElementById('lobby');
+const mainContent = document.getElementById('mainContent');
+const nicknameInput = document.getElementById('nicknameInput');
 const roomInput = document.getElementById('roomInput');
 const joinBtn = document.getElementById('joinBtn');
 const leaveBtn = document.getElementById('leaveBtn');
-const status = document.getElementById('status');
-const videosContainer = document.getElementById('videosContainer');
+const micBtn = document.getElementById('micBtn');
+const cameraBtn = document.getElementById('cameraBtn');
+const chatBtn = document.getElementById('chatBtn');
+const videosGrid = document.getElementById('videosGrid');
+const roomName = document.getElementById('roomName');
+const participantCount = document.getElementById('participantCount');
+
+// 채팅 요소 (데스크톱)
+const chatSection = document.getElementById('chatSection');
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+
+// 채팅 요소 (모바일)
+const chatModal = document.getElementById('chatModal');
+const chatMessagesModal = document.getElementById('chatMessagesModal');
+const chatInputModal = document.getElementById('chatInputModal');
+const sendBtnModal = document.getElementById('sendBtnModal');
+const closeModal = document.getElementById('closeModal');
+const chatBadge = document.getElementById('chatBadge');
+
+// 화면 크기 감지
+window.addEventListener('resize', () => isMobile = window.innerWidth <= 768);
+
+window.addEventListener("load", () => {
+    document.querySelector(".lobby").style.backgroundImage =
+        `url(https://picsum.photos/seed/${Math.random().toString(36).substring(7)}/1980/1080)`;
+    document.querySelector(".lobby").style.backgroundSize = "cover";
+    document.querySelector(".lobby").style.backgroundRepeat = "no-repeat";
+    document.querySelector(".lobby").style.backgroundPosition = "cemter";
+    setTimeout(() => document.getElementById("loading").style.display = "none", 1500);
+    console.log("디스플레이 로딩 완료");
+});
 
 // 로컬 비디오 시작
 async function startLocalVideo() {
@@ -32,70 +74,59 @@ async function startLocalVideo() {
             audio: true
         });
 
-        videosContainer.innerHTML = '';
-        
-        const wrapper = document.createElement('div');
-        wrapper.className = 'video-wrapper';
-        wrapper.id = 'local-wrapper';
-        
-        const video = document.createElement('video');
-        video.id = 'localVideo';
-        video.srcObject = localStream;
-        video.autoplay = true;
-        video.muted = true;
-        video.playsInline = true;
-        
-        const label = document.createElement('div');
-        label.className = 'video-label';
-        label.textContent = '나';
-        
-        wrapper.appendChild(video);
-        wrapper.appendChild(label);
-        videosContainer.appendChild(wrapper);
-        
-        status.textContent = `연결됨 - 방: ${currentRoom}`;
+        addVideoElement('local', localStream, nickname + ' (나)');
+        roomName.textContent = currentRoom;
     } catch (err) {
         console.error('카메라 접근 오류:', err);
-        status.textContent = '카메라 접근 실패';
         alert('카메라와 마이크 권한이 필요합니다.');
     }
 }
 
+// 비디오 요소 추가
+function addVideoElement(id, stream, label) {
+    let wrapper = document.getElementById(`wrapper-${id}`);
+    
+    if (!wrapper) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'video-wrapper';
+        wrapper.id = `wrapper-${id}`;
+        
+        const video = document.createElement('video');
+        video.id = `video-${id}`;
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.playsInline = true;
+        if (id === 'local') video.muted = true;
+        
+        const labelEl = document.createElement('div');
+        labelEl.className = 'video-label';
+        labelEl.textContent = label;
+        
+        const offOverlay = document.createElement('div');
+        offOverlay.className = 'video-off-overlay';
+        offOverlay.id = `overlay-${id}`;
+        offOverlay.innerHTML = `
+            <div class="avatar">${label.charAt(0).toUpperCase()}</div>
+            <div>${label}</div>
+        `;
+        
+        wrapper.appendChild(video);
+        wrapper.appendChild(labelEl);
+        wrapper.appendChild(offOverlay);
+        videosGrid.appendChild(wrapper);
+    }
+}
+
 // Peer Connection 생성
-function createPeerConnection(userId) {
+function createPeerConnection(userId, userName) {
     const pc = new RTCPeerConnection(configuration);
 
-    // 로컬 스트림 추가
     localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-    // 원격 스트림 수신
     pc.ontrack = (event) => {
-        console.log('원격 스트림 수신:', userId);
-        
-        let wrapper = document.getElementById(`wrapper-${userId}`);
-        
-        if (!wrapper) {
-            wrapper = document.createElement('div');
-            wrapper.className = 'video-wrapper';
-            wrapper.id = `wrapper-${userId}`;
-            
-            const video = document.createElement('video');
-            video.id = `video-${userId}`;
-            video.srcObject = event.streams[0];
-            video.autoplay = true;
-            video.playsInline = true;
-            
-            const label = document.createElement('div');
-            label.className = 'video-label';
-            label.textContent = `참가자 ${userId.substring(0, 6)}`;
-            
-            wrapper.appendChild(video);
-            wrapper.appendChild(label);
-            videosContainer.appendChild(wrapper);
-        }
+        addVideoElement(userId, event.streams[0], userName);
     };
 
-    // ICE candidate
     pc.onicecandidate = (event) => {
         if (event.candidate) {
             socket.emit('ice-candidate', {
@@ -105,91 +136,188 @@ function createPeerConnection(userId) {
         }
     };
 
-    // 연결 상태 모니터링
-    pc.onconnectionstatechange = () => console.log(`${userId} 연결 상태:`, pc.connectionState);
     return pc;
 }
 
-// 방 입장
+// 입장
 joinBtn.addEventListener('click', async () => {
-    const roomId = roomInput.value.trim();
+    const nick = nicknameInput.value.trim();
+    const room = roomInput.value.trim();
     
-    if (!roomId) {
-        alert('방 이름을 입력하세요');
+    if (!nick || !room) {
+        alert('닉네임과 방 이름을 모두 입력하세요');
         return;
     }
 
-    currentRoom = roomId;
-    await startLocalVideo();
-    socket.emit('join-room', roomId);
+    nickname = nick;
+    currentRoom = room;
     
-    joinBtn.disabled = true;
-    leaveBtn.disabled = false;
-    roomInput.disabled = true;
+    await startLocalVideo();
+    socket.emit('join-room', { roomId: room, nickname: nick });
+    
+    lobby.style.display = 'none';
+    mainContent.classList.add('active');
+
+    // 모바일이면 채팅 버튼 표시
+    if (isMobile) chatBtn.style.display = 'flex';
 });
 
-// 방 나가기
-leaveBtn.addEventListener('click', () => leaveRoom());
+// 나가기
+leaveBtn.addEventListener('click', () => location.reload());
 
-function leaveRoom() {
-    // 모든 연결 종료
-    for (let userId in peerConnections) {
-        peerConnections[userId].close();
-        delete peerConnections[userId];
-    }
-
-    // 로컬 스트림 종료
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
-
-    // UI 초기화
-    videosContainer.innerHTML = `
-        <div class="empty-state">
-            <h2>방에 입장하세요</h2>
-            <p>위에서 방 이름을 입력하고 입장 버튼을 클릭하세요</p>
-        </div>
+// 마이크 토글
+micBtn.addEventListener('click', () => {
+    isMicOn = !isMicOn;
+    localStream.getAudioTracks()[0].enabled = isMicOn;
+    micBtn.classList.toggle('active');
+    micBtn.innerHTML = isMicOn ? `
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+            class="lucide lucide-mic-icon lucide-mic">
+            <path d="M12 19v3"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <rect x="9" y="2" width="6" height="13" rx="3"/>
+        </svg>
+    ` : `
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+            class="lucide lucide-mic-off-icon lucide-mic-off">
+            <path d="M12 19v3"/>
+            <path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/>
+            <path d="M16.95 16.95A7 7 0 0 1 5 12v-2"/>
+            <path d="M18.89 13.23A7 7 0 0 0 19 12v-2"/>
+            <path d="m2 2 20 20"/>
+            <path d="M9 9v3a3 3 0 0 0 5.12 2.12"/>
+        </svg>
     `;
+});
 
-    socket.disconnect();
-    socket.connect();
+// 카메라 토글
+cameraBtn.addEventListener('click', () => {
+    isCameraOn = !isCameraOn;
+    localStream.getVideoTracks()[0].enabled = isCameraOn;
+    cameraBtn.classList.toggle('active');
+    cameraBtn.innerHTML = isCameraOn ? `
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+            class="lucide lucide-video-icon lucide-video">
+            <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/>
+            <rect x="2" y="6" width="14" height="12" rx="2"/>
+        </svg>    
+    ` : `
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
+            class="lucide lucide-video-off-icon lucide-video-off">
+            <path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196"/>
+            <path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/>
+            <path d="m2 2 20 20"/>
+        </svg>
+    `;
+    
+    const overlay = document.getElementById('overlay-local');
+    if (overlay) {
+        overlay.classList.toggle('active', !isCameraOn);
+    }
+});
 
-    currentRoom = null;
-    joinBtn.disabled = false;
-    leaveBtn.disabled = true;
-    roomInput.disabled = false;
-    status.textContent = '대기 중...';
+// 채팅 버튼 (모바일)
+chatBtn.addEventListener('click', () => {
+    if (isMobile) {
+        chatModal.classList.add('active');
+        unreadMessages = 0;
+        chatBadge.classList.remove('active');
+        chatBadge.textContent = '0';
+    }
+});
+
+// 모달 닫기
+closeModal.addEventListener('click', () => {
+    chatModal.classList.remove('active');
+});
+
+// 모달 배경 클릭시 닫기
+chatModal.addEventListener('click', (e) => {
+    if (e.target === chatModal) {
+        chatModal.classList.remove('active');
+    }
+});
+
+// 채팅 전송 (데스크톱)
+function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    socket.emit('chat-message', { message, nickname });
+    addChatMessage(nickname, message, true);
+    chatInput.value = '';
 }
 
-// 기존 사용자 목록 수신
-socket.on('existing-users', async (users) => {
-    console.log('기존 사용자:', users);
-    
-    for (let userId of users) {
-        const pc = createPeerConnection(userId);
-        peerConnections[userId] = pc;
+sendBtn.addEventListener('click', sendMessage);
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
 
-        // Offer 생성
+// 채팅 전송 (모바일)
+function sendMessageModal() {
+    const message = chatInputModal.value.trim();
+    if (!message) return;
+    
+    socket.emit('chat-message', { message, nickname });
+    addChatMessage(nickname, message, true);
+    chatInputModal.value = '';
+}
+
+sendBtnModal.addEventListener('click', sendMessageModal);
+chatInputModal.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessageModal();
+});
+
+// 채팅 메시지 추가
+function addChatMessage(sender, message, isOwn = false) {
+    const msgEl = document.createElement('div');
+    msgEl.className = `message ${isOwn ? 'own' : 'other'}`;
+    msgEl.innerHTML = `
+        <div class="sender">${sender}</div>
+        <div>${message}</div>
+    `;
+    
+    // 데스크톱 채팅에 추가
+    chatMessages.appendChild(msgEl.cloneNode(true));
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // 모바일 채팅에 추가
+    chatMessagesModal.appendChild(msgEl.cloneNode(true));
+    chatMessagesModal.scrollTop = chatMessagesModal.scrollHeight;
+
+    // 모바일에서 모달이 닫혀있고 본인 메시지가 아니면 뱃지 표시
+    if (isMobile && !chatModal.classList.contains('active') && !isOwn) {
+        unreadMessages++;
+        chatBadge.textContent = unreadMessages;
+        chatBadge.classList.add('active');
+    }
+}
+
+// Socket 이벤트
+socket.on('existing-users', async (users) => {
+    participantCount.textContent = users.length + 1;
+    
+    for (let user of users) {
+        const pc = createPeerConnection(user.id, user.nickname);
+        peerConnections[user.id] = pc;
+
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        socket.emit('offer', {
-            target: userId,
-            offer
-        });
+        socket.emit('offer', { target: user.id, offer });
     }
 });
 
-// 새 사용자 입장
-socket.on('user-connected', (userId) => {
-    console.log('새 사용자 입장:', userId);
+socket.on('user-connected', (data) => {
+    participantCount.textContent = parseInt(participantCount.textContent) + 1;
+    addChatMessage('시스템', `${data.nickname}님이 입장했습니다.`);
 });
 
-// Offer 수신
 socket.on('offer', async (data) => {
-    console.log('Offer 수신:', data.from);
-    
-    const pc = createPeerConnection(data.from);
+    const pc = createPeerConnection(data.from, data.nickname);
     peerConnections[data.from] = pc;
 
     await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
@@ -199,15 +327,12 @@ socket.on('offer', async (data) => {
     socket.emit('answer', { target: data.from, answer });
 });
 
-// Answer 수신
 socket.on('answer', async (data) => {
-    console.log('Answer 수신:', data.from);
     await peerConnections[data.from].setRemoteDescription(
         new RTCSessionDescription(data.answer)
     );
 });
 
-// ICE Candidate 수신
 socket.on('ice-candidate', async (data) => {
     if (peerConnections[data.from]) {
         await peerConnections[data.from].addIceCandidate(
@@ -216,15 +341,24 @@ socket.on('ice-candidate', async (data) => {
     }
 });
 
-// 사용자 퇴장
-socket.on('user-disconnected', (userId) => {
-    console.log('사용자 퇴장:', userId);
+socket.on('user-disconnected', (data) => {
+    participantCount.textContent = parseInt(participantCount.textContent) - 1;
     
-    if (peerConnections[userId]) {
-        peerConnections[userId].close();
-        delete peerConnections[userId];
+    if (peerConnections[data.userId]) {
+        peerConnections[data.userId].close();
+        delete peerConnections[data.userId];
     }
 
-    const wrapper = document.getElementById(`wrapper-${userId}`);
-    if (wrapper) wrapper.remove();
+    const wrapper = document.getElementById(`wrapper-${data.userId}`);
+    if (wrapper) {
+        wrapper.style.transition = 'opacity 0.3s';
+        wrapper.style.opacity = '0';
+        setTimeout(() => wrapper.remove(), 300);
+    }
+    
+    addChatMessage('시스템', `${data.nickname}님이 퇴장했습니다.`);
+});
+
+socket.on('chat-message', (data) => {
+    addChatMessage(data.nickname, data.message);
 });
