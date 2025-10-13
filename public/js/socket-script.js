@@ -28,22 +28,19 @@ function generateUUID() {
 
 // 짧은 코드 생성 함수 (6자리)
 function generateShortCode() {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars = 'abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789';
     let code = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10; i++) {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return code;
+    // 시간값 일부 추가 → 충돌 확률 극소화
+    return code + '-' + Date.now().toString(36).slice(-5);
 }
 
 const configuration = {
     iceServers: [
-        {
-            urls: 'stun:stun.l.google.com:19302'
-        },
-        {
-            urls: 'stun:stun1.l.google.com:19302'
-        }
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
     ]
 };
 
@@ -89,7 +86,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     if (code && roomCodeInput) {
-        roomCodeInput.value = code.toUpperCase();
+        roomCodeInput.value = code;
     }
 });
 
@@ -332,7 +329,7 @@ async function stopScreenShare() {
 joinBtn.addEventListener('click', async () => {
     const nick = nicknameInput.value.trim();
     const title = roomTitleInput.value.trim();
-    let code = roomCodeInput.value.trim().toUpperCase();
+    let code = roomCodeInput.value.trim();
     
     if (!nick) {
         alert('닉네임을 입력하세요');
