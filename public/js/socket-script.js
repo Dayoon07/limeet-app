@@ -535,13 +535,18 @@ socket.on('user-connected', (data) => {
     addChatMessage('시스템', `${data.nickname}님이 입장했습니다.`);
 });
 
-socket.on('room-created', (data) => {
-    // 방이 생성되었을 때 정보 표시
+// 기존 코드 삭제하고 아래로 교체
+socket.on('room-info', (data) => {
+    // 방 정보 업데이트
     currentRoomCode = data.roomCode;
-    currentRoomTitle = data.roomTitle;
+    currentRoomTitle = data.title;
     
+    // 헤더에 방 제목 표시
+    roomName.textContent = data.title;
+    
+    // 로비 정보 영역 업데이트
     if (displayRoomTitle && displayRoomCode && roomInfo) {
-        displayRoomTitle.textContent = data.roomTitle || '제목 없음';
+        displayRoomTitle.textContent = data.title || '제목 없음';
         displayRoomCode.textContent = data.roomCode;
         roomInfo.style.display = 'block';
     }
