@@ -17,6 +17,54 @@ let isScreenSharing = false;
 let unreadMessages = 0;
 let isMobile = window.innerWidth <= 768;
 
+function detectDeviceCapability() {
+    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const cores = navigator.hardwareConcurrency || 2;
+    const memory = navigator.deviceMemory || 4;
+    
+    if (isMobileDevice || cores <= 2 || memory <= 4) return 'low';
+    if (cores <= 4 || memory <= 8) return 'medium';
+    return 'high';
+}
+
+// 동적 비디오 설정 (새로 추가)
+function getOptimalVideoConstraints() {
+    const capability = detectDeviceCapability();
+    const participantCount = Object.keys(peerConnections).length + 1;
+    
+    // 참가자 많으면 품질 낮춤
+    if (participantCount >= 7) {
+        return {
+            width: { ideal: 320, max: 480 },
+            height: { ideal: 240, max: 360 },
+            frameRate: { ideal: 15, max: 20 }
+        };
+    }
+    
+    if (participantCount >= 4 || capability === 'low') {
+        return {
+            width: { ideal: 480, max: 640 },
+            height: { ideal: 360, max: 480 },
+            frameRate: { ideal: 20, max: 24 }
+        };
+    }
+    
+    if (capability === 'medium') {
+        return {
+            width: { ideal: 640, max: 960 },
+            height: { ideal: 480, max: 720 },
+            frameRate: { ideal: 24, max: 30 }
+        };
+    }
+    
+    // 고성능 & 소수 인원
+    return {
+        width: { ideal: 960, max: 1280 },
+        height: { ideal: 720, max: 720 },
+        frameRate: { ideal: 30, max: 30 }
+    };
+}
+
 // UUID 생성 함수
 function generateUUID() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -33,7 +81,6 @@ function generateShortCode() {
     for (let i = 0; i < 10; i++) {
         code += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    // 시간값 일부 추가 → 충돌 확률 극소화
     return code + '-' + Date.now().toString(36).slice(-5);
 }
 
@@ -41,7 +88,10 @@ const configuration = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' }
-    ]
+    ],
+    sdpSemantics: 'unified-plan',
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require'
 };
 
 // DOM 요소
@@ -85,9 +135,7 @@ window.addEventListener('resize', () => isMobile = window.innerWidth <= 768);
 window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
-    if (code && roomCodeInput) {
-        roomCodeInput.value = code;
-    }
+    if (code && roomCodeInput) roomCodeInput.value = code;
 });
 
 // 방 코드 복사
@@ -116,16 +164,28 @@ if (copyCodeBtn) {
 // 로컬 비디오 시작
 async function startLocalVideo() {
     try {
+        const videoConstraints = getOptimalVideoConstraints();
+        
         localStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: 1280,
-                height: 720
-            },
-            audio: true
+            video: videoConstraints,
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                channelCount: 1  // 모노 오디오로 대역폭 절약
+            }
         });
 
         addVideoElement('local', localStream, nickname + ' (나)', false);
         roomName.textContent = currentRoomTitle || currentRoomCode;
+        
+        // 콘솔에 적용된 설정 출력
+        const settings = localStream.getVideoTracks()[0].getSettings();
+        console.log('비디오 설정:', {
+            해상도: `${settings.width}x${settings.height}`,
+            프레임레이트: `${settings.frameRate}fps`,
+            성능모드: detectDeviceCapability()
+        });
     } catch (err) {
         console.error('카메라 접근 오류:', err);
         alert('카메라와 마이크 권한이 필요합니다.');
@@ -187,15 +247,41 @@ function removeVideoElement(id) {
 function createPeerConnection(userId, userName) {
     const pc = new RTCPeerConnection(configuration);
 
-    // 화면 공유 중이면 화면 공유 스트림 전송, 아니면 로컬 스트림 전송
     const streamToSend = isScreenSharing ? screenStream : localStream;
-    streamToSend.getTracks().forEach(track => pc.addTrack(track, streamToSend));
+    
+    streamToSend.getTracks().forEach(track => {
+        const sender = pc.addTrack(track, streamToSend);
+        
+        // 비디오 트랙 비트레이트 제한
+        if (track.kind === 'video' && !isScreenSharing) {
+            const participantCount = Object.keys(peerConnections).length + 1;
+            
+            // 참가자 수에 따라 비트레이트 조정
+            let maxBitrate;
+            if (participantCount >= 7) {
+                maxBitrate = 250000;  // 250kbps
+            } else if (participantCount >= 4) {
+                maxBitrate = 500000;  // 500kbps
+            } else {
+                maxBitrate = 1000000; // 1Mbps
+            }
+            
+            const parameters = sender.getParameters();
+            if (!parameters.encodings) {
+                parameters.encodings = [{}];
+            }
+            parameters.encodings[0].maxBitrate = maxBitrate;
+            
+            sender.setParameters(parameters)
+                .then(() => console.log(`✅ ${userName} 비트레이트: ${maxBitrate/1000}kbps`))
+                .catch(e => console.warn('비트레이트 설정 실패:', e));
+        }
+    });
 
     pc.ontrack = (event) => {
         const stream = event.streams[0];
         const videoTrack = stream.getVideoTracks()[0];
         
-        // 화면 공유인지 확인 (contentHint로 구분)
         const isScreenTrack = videoTrack && videoTrack.contentHint === 'detail';
         
         if (isScreenTrack) {
@@ -223,33 +309,38 @@ async function startScreenShare() {
         screenStream = await navigator.mediaDevices.getDisplayMedia({
             video: {
                 cursor: 'always',
-                displaySurface: 'monitor'
+                displaySurface: 'monitor',
+                frameRate: { ideal: 15, max: 20 },  // 화면공유는 낮은 프레임으로
+                width: { max: 1920 },
+                height: { max: 1080 }
             },
             audio: false
         });
 
-        // 화면 공유 트랙에 contentHint 설정
         const videoTrack = screenStream.getVideoTracks()[0];
         if (videoTrack) {
             videoTrack.contentHint = 'detail';
         }
 
-        // 화면 공유 비디오 추가
         addVideoElement('local-screen', screenStream, nickname + '의 화면 (나)', true);
 
-        // 모든 피어에게 화면 공유 스트림 전송
         for (let userId in peerConnections) {
             const pc = peerConnections[userId];
             const senders = pc.getSenders();
             
-            // 기존 비디오 트랙을 화면 공유 트랙으로 교체
             const videoSender = senders.find(sender => sender.track && sender.track.kind === 'video');
             if (videoSender) {
-                videoSender.replaceTrack(screenStream.getVideoTracks()[0]);
+                await videoSender.replaceTrack(screenStream.getVideoTracks()[0]);
+                
+                // 화면 공유는 더 높은 비트레이트
+                const parameters = videoSender.getParameters();
+                if (parameters.encodings && parameters.encodings[0]) {
+                    parameters.encodings[0].maxBitrate = 1500000; // 1.5Mbps
+                    videoSender.setParameters(parameters);
+                }
             }
         }
 
-        // 화면 공유가 중지되었을 때 처리
         screenStream.getVideoTracks()[0].onended = () => {
             stopScreenShare();
         };
@@ -257,7 +348,6 @@ async function startScreenShare() {
         isScreenSharing = true;
         screenShareBtn.classList.add('screen-sharing');
         
-        // 아이콘 변경
         screenShareBtn.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
@@ -270,8 +360,8 @@ async function startScreenShare() {
             </svg>
         `;
 
-        // 다른 사용자들에게 화면 공유 시작 알림
         socket.emit('screen-share-started', { nickname });
+        console.log('🖥️ 화면 공유 시작 (최적화됨)');
 
     } catch (err) {
         console.error('화면 공유 오류:', err);
@@ -287,13 +377,9 @@ async function startScreenShare() {
 async function stopScreenShare() {
     if (!screenStream) return;
 
-    // 화면 공유 스트림 정지
     screenStream.getTracks().forEach(track => track.stop());
-    
-    // 화면 공유 비디오 요소 제거
     removeVideoElement('local-screen');
 
-    // 모든 피어에게 원래 비디오 트랙으로 복원
     for (let userId in peerConnections) {
         const pc = peerConnections[userId];
         const senders = pc.getSenders();
@@ -308,7 +394,6 @@ async function stopScreenShare() {
     isScreenSharing = false;
     screenShareBtn.classList.remove('screen-sharing');
     
-    // 아이콘 원래대로
     screenShareBtn.innerHTML = `
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
@@ -321,7 +406,6 @@ async function stopScreenShare() {
         </svg>
     `;
 
-    // 다른 사용자들에게 화면 공유 중지 알림
     socket.emit('screen-share-stopped', { nickname });
 }
 

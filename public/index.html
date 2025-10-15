@@ -22,22 +22,46 @@
                     <img src="https://web-rtc-meet.onrender.com/img/web-rtc-meet-icon.ico" alt="..." style="width: 36px; height: 36px;">
                     <h2>WebRTC Meet Pro</h2>
                 </div>
-                <div class="form-group">
-                    <label>닉네임</label>
-                    <input type="text" id="nicknameInput" placeholder="이름을 입력하세요">
+
+                <!-- 탭 버튼 -->
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="create">방 만들기</button>
+                    <button class="tab-btn" data-tab="join">방 참가하기</button>
                 </div>
-                <div class="form-group">
-                    <label>방 제목</label>
-                    <input type="text" id="roomTitleInput" placeholder="회의 제목을 입력하세요">
+
+                <!-- 방 만들기 탭 -->
+                <div class="tab-content active" id="createTab">
+                    <div class="form-group">
+                        <label>닉네임</label>
+                        <input type="text" id="nicknameInputCreate" placeholder="이름을 입력하세요">
+                    </div>
+                    <div class="form-group">
+                        <label>방 제목</label>
+                        <input type="text" id="roomTitleInput" placeholder="회의 제목을 입력하세요">
+                    </div>
+                    <div class="form-group">
+                        <label>방 코드 (선택사항)</label>
+                        <input type="text" id="roomCodeInputCreate" placeholder="방 코드 입력 또는 자동 생성">
+                        <small style="color: #aaa; font-size: 0.85em; margin-top: 5px; display: block;">
+                            비워두면 자동으로 생성됩니다
+                        </small>
+                    </div>
+                    <button class="btn-join" id="createRoomBtn">방 만들기</button>
                 </div>
-                <div class="form-group">
-                    <label>방 코드 (선택사항)</label>
-                    <input type="text" id="roomCodeInput" placeholder="방 코드 입력 또는 자동 생성">
-                    <small style="color: #aaa; font-size: 0.85em; margin-top: 5px; display: block;">
-                        비워두면 자동으로 생성됩니다
-                    </small>
+
+                <!-- 방 참가하기 탭 -->
+                <div class="tab-content" id="joinTab">
+                    <div class="form-group">
+                        <label>닉네임</label>
+                        <input type="text" id="nicknameInputJoin" placeholder="이름을 입력하세요">
+                    </div>
+                    <div class="form-group">
+                        <label>방 코드</label>
+                        <input type="text" id="roomCodeInput" placeholder="방 코드를 입력하세요">
+                    </div>
+                    <button class="btn-join" id="joinRoomBtn">참가하기</button>
                 </div>
-                <button class="btn-join" id="joinBtn">방 만들기 / 입장하기</button>
+
                 <div id="roomInfo" style="margin-top: 15px; padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 8px; display: none;">
                     <div style="color: #667eea; font-weight: bold; margin-bottom: 8px;">방 정보</div>
                     <div style="font-size: 0.9em; color: #555; margin-bottom: 5px;">
