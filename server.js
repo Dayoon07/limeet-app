@@ -22,13 +22,21 @@ io.on('connection', (socket) => {
     console.log('새 사용자 연결:', socket.id);
 
     // 방 입장 (닉네임 포함)
+    // 방 입장 (닉네임 포함)
     socket.on('join-room', (data) => {
-        const { roomId, nickname } = data;
+        const { roomId, nickname, roomTitle } = data;
         socket.join(roomId);
 
         // 방 초기화
         if (!rooms[roomId]) {
             rooms[roomId] = [];
+            // 첫 번째 사용자가 방 제목 설정
+            roomMetadata[roomId] = {
+                title: roomTitle || roomId,
+                roomCode: roomId,
+                createdAt: new Date().toISOString()
+            };
+            console.log(`새 방 생성: ${roomId}, 제목: ${roomTitle || roomId}`);
         }
 
         // 사용자 정보 저장
@@ -45,6 +53,9 @@ io.on('connection', (socket) => {
 
         // 새 사용자에게 기존 사용자 목록 전송
         socket.emit('existing-users', rooms[roomId]);
+
+        // 새 사용자에게 방 메타데이터 전송 (추가)
+        socket.emit('room-info', roomMetadata[roomId]);
 
         // 방에 사용자 추가
         rooms[roomId].push(userInfo);
