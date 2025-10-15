@@ -27,7 +27,7 @@ function detectDeviceCapability() {
     return 'high';
 }
 
-// 동적 비디오 설정 (새로 추가)
+// 동적 비디오 설정
 function getOptimalVideoConstraints() {
     const capability = detectDeviceCapability();
     const participantCount = Object.keys(peerConnections).length + 1;
@@ -65,16 +65,7 @@ function getOptimalVideoConstraints() {
     };
 }
 
-// UUID 생성 함수
-function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
-}
-
-// 짧은 코드 생성 함수 (6자리)
+// 짧은 코드 생성 함수 (10자리)
 function generateShortCode() {
     const chars = 'abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789';
     let code = '';
@@ -94,13 +85,22 @@ const configuration = {
     rtcpMuxPolicy: 'require'
 };
 
-// DOM 요소
+// DOM 요소 - 수정됨
 const lobby = document.getElementById('lobby');
 const mainContent = document.getElementById('mainContent');
-const nicknameInput = document.getElementById('nicknameInput');
+
+// 방 만들기 탭 요소
+const nicknameInputCreate = document.getElementById('nicknameInputCreate');
 const roomTitleInput = document.getElementById('roomTitleInput');
-const roomCodeInput = document.getElementById('roomCodeInput');
-const joinBtn = document.getElementById('joinBtn');
+const roomCodeInputCreate = document.getElementById('roomCodeInputCreate');
+const createRoomBtn = document.getElementById('createRoomBtn');
+
+// 방 참가하기 탭 요소
+const nicknameInputJoin = document.getElementById('nicknameInputJoin');
+const roomCodeInputJoin = document.getElementById('roomCodeInputJoin');
+const joinRoomBtn = document.getElementById('joinRoomBtn');
+
+// 공통 요소
 const roomInfo = document.getElementById('roomInfo');
 const displayRoomTitle = document.getElementById('displayRoomTitle');
 const displayRoomCode = document.getElementById('displayRoomCode');
@@ -135,7 +135,7 @@ window.addEventListener('resize', () => isMobile = window.innerWidth <= 768);
 window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
-    if (code && roomCodeInput) roomCodeInput.value = code;
+    if (code && roomCodeInputJoin) roomCodeInputJoin.value = code;
 });
 
 // 방 코드 복사
@@ -310,7 +310,7 @@ async function startScreenShare() {
             video: {
                 cursor: 'always',
                 displaySurface: 'monitor',
-                frameRate: { ideal: 15, max: 20 },  // 화면공유는 낮은 프레임으로
+                frameRate: { ideal: 15, max: 20 },
                 width: { max: 1920 },
                 height: { max: 1080 }
             },
@@ -332,10 +332,9 @@ async function startScreenShare() {
             if (videoSender) {
                 await videoSender.replaceTrack(screenStream.getVideoTracks()[0]);
                 
-                // 화면 공유는 더 높은 비트레이트
                 const parameters = videoSender.getParameters();
                 if (parameters.encodings && parameters.encodings[0]) {
-                    parameters.encodings[0].maxBitrate = 1500000; // 1.5Mbps
+                    parameters.encodings[0].maxBitrate = 1500000;
                     videoSender.setParameters(parameters);
                 }
             }
@@ -361,7 +360,7 @@ async function startScreenShare() {
         `;
 
         socket.emit('screen-share-started', { nickname });
-        console.log('🖥️ 화면 공유 시작 (최적화됨)');
+        console.log('🖥️ 화면 공유 시작');
 
     } catch (err) {
         console.error('화면 공유 오류:', err);
@@ -409,31 +408,12 @@ async function stopScreenShare() {
     socket.emit('screen-share-stopped', { nickname });
 }
 
-// 입장
-joinBtn.addEventListener('click', async () => {
-    const nick = nicknameInput.value.trim();
-    const title = roomTitleInput.value.trim();
-    let code = roomCodeInput.value.trim();
-    
-    if (!nick) {
-        alert('닉네임을 입력하세요');
-        return;
-    }
-
-    if (!title && !code) {
-        alert('방 제목을 입력하거나 방 코드를 입력하세요');
-        return;
-    }
-
-    // 코드가 없으면 자동 생성
-    if (!code) {
-        code = generateShortCode();
-    }
-
+// 방 입장 로직 통합
+async function joinRoom(nick, title, code) {
     nickname = nick;
     currentRoomTitle = title;
     currentRoomCode = code;
-    currentRoom = code; // 실제 방 ID는 코드 사용
+    currentRoom = code;
     
     await startLocalVideo();
     socket.emit('join-room', { 
@@ -445,10 +425,51 @@ joinBtn.addEventListener('click', async () => {
     lobby.style.display = 'none';
     mainContent.classList.add('active');
 
-    // 모바일이면 채팅 버튼 표시
     if (isMobile) chatBtn.style.display = 'flex';
 
-    addChatMessage('시스템', `새로운 참가자가 방에 입장했습니다. (roomId: ${code})`);
+    addChatMessage('시스템', `방에 입장했습니다. (방 코드: ${code})`);
+}
+
+// 방 만들기 버튼
+createRoomBtn.addEventListener('click', async () => {
+    const nick = nicknameInputCreate.value.trim();
+    const title = roomTitleInput.value.trim();
+    let code = roomCodeInputCreate.value.trim();
+    
+    if (!nick) {
+        alert('닉네임을 입력하세요');
+        return;
+    }
+
+    if (!title) {
+        alert('방 제목을 입력하세요');
+        return;
+    }
+
+    // 코드가 없으면 자동 생성
+    if (!code) {
+        code = generateShortCode();
+    }
+
+    await joinRoom(nick, title, code);
+});
+
+// 방 참가하기 버튼
+joinRoomBtn.addEventListener('click', async () => {
+    const nick = nicknameInputJoin.value.trim();
+    const code = roomCodeInputJoin.value.trim();
+    
+    if (!nick) {
+        alert('닉네임을 입력하세요');
+        return;
+    }
+
+    if (!code) {
+        alert('방 코드를 입력하세요');
+        return;
+    }
+
+    await joinRoom(nick, '', code);
 });
 
 // 나가기
@@ -619,23 +640,18 @@ socket.on('user-connected', (data) => {
     addChatMessage('시스템', `${data.nickname}님이 입장했습니다.`);
 });
 
-// 기존 코드 삭제하고 아래로 교체
 socket.on('room-info', (data) => {
-    // 방 정보 업데이트
     currentRoomCode = data.roomCode;
     currentRoomTitle = data.title;
     
-    // 헤더에 방 제목 표시
     roomName.textContent = data.title;
     
-    // 로비 정보 영역 업데이트
     if (displayRoomTitle && displayRoomCode && roomInfo) {
         displayRoomTitle.textContent = data.title || '제목 없음';
         displayRoomCode.textContent = data.roomCode;
         roomInfo.style.display = 'block';
     }
     
-    // URL 업데이트 (히스토리 추가 없이)
     const newUrl = `${window.location.pathname}?code=${data.roomCode}`;
     window.history.replaceState({}, '', newUrl);
 });
@@ -673,7 +689,6 @@ socket.on('user-disconnected', (data) => {
         delete peerConnections[data.userId];
     }
 
-    // 일반 비디오 제거
     const wrapper = document.getElementById(`wrapper-${data.userId}`);
     if (wrapper) {
         wrapper.style.transition = 'opacity 0.3s';
@@ -681,7 +696,6 @@ socket.on('user-disconnected', (data) => {
         setTimeout(() => wrapper.remove(), 300);
     }
     
-    // 화면 공유 비디오 제거
     const screenWrapper = document.getElementById(`wrapper-${data.userId}-screen`);
     if (screenWrapper) {
         screenWrapper.style.transition = 'opacity 0.3s';
@@ -704,4 +718,4 @@ socket.on('screen-share-stopped', (data) => {
     addChatMessage('시스템', `${data.nickname}님이 화면 공유를 중지했습니다.`);
 });
 
-console.log(socket);
+console.log('Socket.io 연결됨:', socket.connected);
