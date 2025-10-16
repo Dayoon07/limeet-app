@@ -1,11 +1,11 @@
-# web-rtc-meet
+# limit-meet-app
 
 ![](https://dayoon07.github.io/static-page-test/img/web-rtc-meet-pro-test-img-1.png)
 ![](https://dayoon07.github.io/static-page-test/img/web-rtc-meet-pro-test-img-2.png)
 
 ## 프로젝트 소개
 
-WebRTC 기술을 활용하여 Zoom과 같은 실시간 화상 회의 기능을 구현한 웹 애플리케이션입니다. 별도의 플러그인 설치 없이 브라우저만으로 다자간 영상 통화, 채팅, 화면 공유 등의 기능을 제공합니다.
+WebRTC 기술을 활용하여 Zoom과 같은 실시간 화상 회의 기능을 구현한 웹 애플리케이션입니다. 별도의 플러그인 설치 없이 브라우저만으로 영상 통화, 채팅, 화면 공유 등의 기능을 제공합니다.
 
 **현재 상태:** MVP (Minimum Viable Product)  
 **향후 계획:** 지속적인 기능 추가 및 개선 예정
@@ -43,7 +43,7 @@ WebRTC 기술을 활용하여 Zoom과 같은 실시간 화상 회의 기능을 �
 
 ### Frontend
 - **Vanilla JavaScript (ES6+)**: 모듈 시스템, async/await 활용
-- **WebRTC API**: RTCPeerConnection, getUserMedia, getDisplayMedia
+- **WebRTC API (JS)**: RTCPeerConnection , getUserMedia, getDisplayMedia
 - **Socket.IO Client**: 실시간 시그널링 통신
 - **CSS3**: Flexbox, Grid, 반응형 미디어 쿼리
 
@@ -73,14 +73,14 @@ git clone https://github.com/yourusername/web-rtc-meet.git
 cd web-rtc-meet
 
 # 의존성 패키지 설치
-npm install
+npm install 또는 yarn install
 ```
 
 ### 실행 방법
 
 ```bash
 # 개발 서버 시작
-npm start
+npm start 또는 yarn install
 
 # 브라우저에서 접속
 http://localhost:3000
@@ -109,7 +109,7 @@ http://localhost:3000
 ## 프로젝트 구조
 
 ```
-web-rtc-meet/
+limit-meet-app/
 ├── public/
 │   ├── css/
 │   │   └── style.css              # 스타일시트
