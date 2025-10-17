@@ -357,7 +357,7 @@ body {
 
 /* 채팅 영역 (데스크톱) */
 .chat-section {
-    width: 500px;
+    width: 450px;
     background: white;
     display: flex;
     flex-direction: column;
