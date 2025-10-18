@@ -17,6 +17,16 @@ let isScreenSharing = false;
 let unreadMessages = 0;
 let isMobile = window.innerWidth <= 768;
 
+function isMobileDevice() {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+}
+
+// 화면 공유 지원 여부 확인
+function isScreenShareSupported() {
+    return !isMobileDevice() && 
+           (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+}
+
 function detectDeviceCapability() {
     const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const cores = navigator.hardwareConcurrency || 2;
@@ -136,6 +146,12 @@ window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     if (code && roomCodeInputJoin) roomCodeInputJoin.value = code;
+
+    // 화면 공유 지원하지 않으면 버튼 숨기기
+    if (!isScreenShareSupported()) {
+        screenShareBtn.style.display = 'none';
+        console.log('화면 공유는 데스크톱 환경에서만 지원됩니다.');
+    }
 });
 
 // 방 코드 복사
@@ -537,6 +553,11 @@ cameraBtn.addEventListener('click', () => {
 
 // 화면 공유 토글
 screenShareBtn.addEventListener('click', () => {
+    if (!isScreenShareSupported()) {
+        alert('화면 공유는 데스크톱 환경에서만 지원됩니다.');
+        return;
+    }
+    
     if (isScreenSharing) {
         stopScreenShare();
     } else {
