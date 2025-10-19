@@ -227,6 +227,11 @@ function addVideoElement(id, stream, label, isScreen = false) {
         video.playsInline = true;
         if (id === 'local' || id === 'local-screen') video.muted = true;
         
+        // 화면 공유는 좌우 반전하지 않음
+        if (isScreen) {
+            video.style.transform = 'none';
+        }
+
         const labelEl = document.createElement('div');
         labelEl.className = 'video-label';
         if (isScreen) {
