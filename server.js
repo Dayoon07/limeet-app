@@ -19,7 +19,11 @@ const rooms = {};
 const roomMetadata = {}; // 방 제목 등 메타데이터 저장
 
 io.on('connection', (socket) => {
-    console.log('새 사용자 연결:', socket.id);
+    const forwarded = socket.handshake.headers['x-forwarded-for'];
+    const ip = forwarded ? forwarded.split(',')[0].trim() : (socket.handshake.address || socket.conn.remoteAddress);
+    const userAgent = socket.handshake.headers['user-agent'] || '';
+
+    console.log('새 사용자 연결:', socket.id, 'ip:', ip, 'ua:', userAgent);
 
     // 방 입장 (닉네임 포함)
     // 방 입장 (닉네임 포함)
