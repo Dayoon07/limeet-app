@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "express": "^5.1.0",
+    "ipinfo": "^1.5.2",
     "socket.io": "^4.8.1"
   }
 }

@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const ipinfo = require('ipinfo');
 
 const app = express();
 const server = http.createServer(app);
@@ -24,6 +25,7 @@ io.on('connection', (socket) => {
     const userAgent = socket.handshake.headers['user-agent'] || '';
 
     console.log('새 사용자 연결:', socket.id, 'ip:', ip, 'ua:', userAgent);
+    ipinfo(ip).then(info => console.log(info));
 
     // 방 입장 (닉네임 포함)
     // 방 입장 (닉네임 포함)
