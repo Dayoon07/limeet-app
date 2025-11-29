@@ -4,17 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="리미트(Limeet)는 간편하고 깔끔한 화상 회의 앱입니다. 회원가입 없이 빠르게 회의를 시작하세요!" />
-    <meta name="keywords" content="리미트, limeet, limeet, limeet app, Limeet App, 리미트 미트 앱 화상회의, 회의앱, 영상통화, 온라인 미팅, web-rtc, webrtc, Web-RTC" />
-    <meta name="content" content="리미트 (Limeet) - 자유로운 화상 회의 앱" />
+    <meta name="keywords" content="리미트, limeet, 화상회의, 회의앱, 영상통화, 온라인 미팅, web-rtc" />
     <meta property="og:title" content="리미트 - 간편한 화상 회의 앱" />
     <meta property="og:description" content="회원가입 없이 빠르게 회의를 시작하세요. 리미트에서!" />
-    <meta property="og:image" content="https://limeet-app.onrender.com/img/logo-img.png" />
-    <meta property="og:url" content="https://limeet-app.onrender.com" />
-    <meta name="google-site-verification" content="rMt7W3VYgwQ3bMgBsjA6kvrLFEmjnhVJKJCE2_nWBYM" />
     
-    <link rel="shortcut icon" href="https://limeet-app.onrender.com/img/icon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="https://limeet-app.onrender.com/css/style.css">
-
+    <link rel="stylesheet" href="css/style.css">
     <title>Limeet</title>
 </head>
 <body>
@@ -29,8 +23,7 @@
         <div class="lobby" id="lobby">
             <div class="lobby-form">
                 <div class="form-logo">
-                    <img src="https://limeet-app.onrender.com/img/page-main-logo-img.png" alt="..." style="width: 100%;" />
-                    <!-- <h2>WebRTC Meet Pro</h2> -->
+                    <h2>Limeet</h2>
                 </div>
 
                 <!-- 탭 버튼 -->
@@ -141,6 +134,23 @@
                         </svg>
                         <span class="chat-badge" id="chatBadge">0</span>
                     </button>
+                    <button class="control-btn" id="backgroundBtn" title="가상 배경">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wallpaper-icon lucide-wallpaper">
+                            <path d="M12 17v4"/><path d="M8 21h8"/>
+                            <path d="m9 17 6.1-6.1a2 2 0 0 1 2.81.01L22 15"/>
+                            <circle cx="8" cy="9" r="2"/>
+                            <rect x="2" y="3" width="20" height="14" rx="2"/>
+                        </svg>
+                    </button>
+                    <button class="control-btn" id="raiseHandBtn" title="손 들기">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2v20"/>
+                            <path d="M7 7v10a3 3 0 0 0 3 3h0a3 3 0 0 0 3-3V7"/>
+                            <path d="M17 7v10a3 3 0 0 0-3 3h0a3 3 0 0 0 3-3V7"/>
+                        </svg>
+                    </button>
                     <button class="control-btn danger" id="leaveBtn" title="나가기">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
@@ -168,15 +178,11 @@
                 </div>
                 <div class="chat-messages" id="chatMessages"></div>
                 <div class="chat-input-area">
-                    <input type="text" id="chatInput" placeholder="메시지 입력...">
-                    <button id="sendBtn">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" 
-                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" 
-                            class="lucide lucide-send-icon lucide-send">
-                            <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
-                            <path d="m21.854 2.147-10.94 10.939"/>
-                        </svg>
+                    <button id="fileShareBtn" style="padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                        📎
                     </button>
+                    <input type="text" id="chatInput" placeholder="메시지 입력...">
+                    <button id="sendBtn">전송</button>
                 </div>
             </div>
         </div>
@@ -215,8 +221,8 @@
     </div>
 
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <script type="module" src="https://limeet-app.onrender.com/js/socket-script.js"></script>
-    <script type="module" src="https://limeet-app.onrender.com/js/loaded.js"></script>
+    <script type="module" src="js/socket-script.js"></script>
+    <script type="module" src="js/loaded.js"></script>
 
 </body>
 </html>

@@ -16,6 +16,14 @@ let isCameraOn = true;
 let isScreenSharing = false;
 let unreadMessages = 0;
 let isMobile = window.innerWidth <= 768;
+let backgroundFilter = 'none'; // 'none', 'blur', 'image'
+let backgroundImage = null;
+let canvas = null;
+let canvasContext = null;
+let handRaised = false;
+let currentRoomPassword = null;
+let isHost = false;
+const hostUsers = {};
 
 function isMobileDevice() {
     return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -137,6 +145,8 @@ const chatInputModal = document.getElementById('chatInputModal');
 const sendBtnModal = document.getElementById('sendBtnModal');
 const closeModal = document.getElementById('closeModal');
 const chatBadge = document.getElementById('chatBadge');
+
+const raiseHandBtn = document.getElementById('raiseHandBtn');
 
 // 화면 크기 감지
 window.addEventListener('resize', () => isMobile = window.innerWidth <= 768);
@@ -261,6 +271,40 @@ function removeVideoElement(id) {
         wrapper.style.transition = 'opacity 0.3s';
         wrapper.style.opacity = '0';
         setTimeout(() => wrapper.remove(), 300);
+    }
+}
+
+function toggleRaiseHand() {
+    handRaised = !handRaised;
+    
+    if (handRaised) {
+        socket.emit('raise-hand', {
+            nickname: nickname,
+            userId: socket.id
+        });
+        
+        const raiseHandBtn = document.getElementById('raiseHandBtn');
+        if (raiseHandBtn) {
+            raiseHandBtn.classList.add('active');
+            raiseHandBtn.style.background = '#f39c12';
+        }
+        
+        addChatMessage('시스템', `${nickname}님이 손을 들었습니다. ✋`);
+        console.log('✋ 손 들기');
+    } else {
+        socket.emit('lower-hand', {
+            nickname: nickname,
+            userId: socket.id
+        });
+        
+        const raiseHandBtn = document.getElementById('raiseHandBtn');
+        if (raiseHandBtn) {
+            raiseHandBtn.classList.remove('active');
+            raiseHandBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+        }
+        
+        addChatMessage('시스템', `${nickname}님이 손을 내렸습니다.`);
+        console.log('손 내리기');
     }
 }
 
@@ -647,6 +691,115 @@ function addChatMessage(sender, message, isOwn = false) {
     }
 }
 
+async function initializeVirtualBackground() {
+    canvas = document.createElement('canvas');
+    canvasContext = canvas.getContext('2d');
+    
+    // TensorFlow.js와 BodyPix 로드
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.11.0');
+    await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix@2.2.0');
+}
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
+// 배경 블러 적용
+async function applyBackgroundBlur(videoTrack, strength = 'medium') {
+    try {
+        backgroundFilter = 'blur';
+        const settings = videoTrack.getSettings();
+        const width = settings.width;
+        const height = settings.height;
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const video = document.querySelector(`video[id="video-local"]`);
+        if (!video) return;
+        
+        // 간단한 배경 블러 구현 (Canvas 필터 사용)
+        const filterValue = strength === 'strong' ? 25 : strength === 'medium' ? 15 : 8;
+        
+        const processFrame = async () => {
+            canvasContext.filter = `blur(${filterValue}px)`;
+            canvasContext.drawImage(video, 0, 0, width, height);
+            
+            if (backgroundFilter === 'blur') {
+                requestAnimationFrame(processFrame);
+            }
+        };
+        
+        processFrame();
+        console.log('✅ 배경 블러 적용됨:', strength);
+    } catch (err) {
+        console.error('배경 블러 오류:', err);
+    }
+}
+
+// 배경 이미지 적용
+async function applyBackgroundImage(imageUrl) {
+    try {
+        backgroundFilter = 'image';
+        
+        const img = new Image();
+        img.onload = () => {
+            backgroundImage = img;
+            console.log('✅ 배경 이미지 로드됨');
+        };
+        img.onerror = () => {
+            alert('배경 이미지를 로드할 수 없습니다.');
+        };
+        img.src = imageUrl;
+    } catch (err) {
+        console.error('배경 이미지 적용 오류:', err);
+    }
+}
+
+// 배경 제거
+function removeVirtualBackground() {
+    backgroundFilter = 'none';
+    backgroundImage = null;
+    console.log('✅ 가상 배경 제거됨');
+}
+
+const backgroundBtn = document.getElementById('backgroundBtn');
+if (backgroundBtn) {
+    backgroundBtn.addEventListener('click', () => {
+        const option = prompt('배경 설정:\n1. 배경 블러 (약)\n2. 배경 블러 (중)\n3. 배경 블러 (강)\n4. 배경 이미지\n5. 배경 제거');
+        
+        if (option === '1') applyBackgroundBlur(localStream.getVideoTracks()[0], 'light');
+        else if (option === '2') applyBackgroundBlur(localStream.getVideoTracks()[0], 'medium');
+        else if (option === '3') applyBackgroundBlur(localStream.getVideoTracks()[0], 'strong');
+        else if (option === '4') {
+            const imageUrl = prompt('배경 이미지 URL을 입력하세요:');
+            if (imageUrl) applyBackgroundImage(imageUrl);
+        }
+        else if (option === '5') removeVirtualBackground();
+    });
+}
+
+if (raiseHandBtn) {
+    raiseHandBtn.addEventListener('click', toggleRaiseHand);
+}
+
+// Socket 이벤트 리스너 추가
+socket.on('raise-hand', (data) => {
+    addChatMessage('시스템', `${data.nickname}님이 손을 들었습니다. ✋`);
+    console.log('✋', data.nickname, '손 들기');
+});
+
+socket.on('lower-hand', (data) => {
+    addChatMessage('시스템', `${data.nickname}님이 손을 내렸습니다.`);
+    console.log(data.nickname, '손 내리기');
+});
+
 // Socket 이벤트
 socket.on('existing-users', async (users) => {
     participantCount.textContent = users.length + 1;
@@ -745,3 +898,374 @@ socket.on('screen-share-stopped', (data) => {
 });
 
 console.log('Socket.io 연결됨:', socket.connected);
+
+function sendFile(file) {
+    if (!file) return;
+    
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+        alert('파일 크기가 50MB를 초과합니다.');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const fileData = {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            data: e.target.result, // Base64
+            sender: nickname
+        };
+        
+        socket.emit('file-share', fileData);
+        addChatMessage(nickname, `📎 ${file.name} (${formatFileSize(file.size)})`, true);
+    };
+    reader.readAsDataURL(file);
+}
+
+// 파일 크기 포맷팅
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+// 파일 다운로드 함수
+function downloadFile(base64Data, fileName) {
+    const link = document.createElement('a');
+    link.href = base64Data;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// 파일 선택 입력 (데스크톱 채팅)
+const fileInputDesktop = document.createElement('input');
+fileInputDesktop.type = 'file';
+fileInputDesktop.id = 'fileInputDesktop';
+fileInputDesktop.style.display = 'none';
+fileInputDesktop.addEventListener('change', (e) => {
+    if (e.target.files[0]) {
+        sendFile(e.target.files[0]);
+    }
+});
+document.body.appendChild(fileInputDesktop);
+
+// 파일 선택 입력 (모바일 채팅)
+const fileInputMobile = document.createElement('input');
+fileInputMobile.type = 'file';
+fileInputMobile.id = 'fileInputMobile';
+fileInputMobile.style.display = 'none';
+fileInputMobile.addEventListener('change', (e) => {
+    if (e.target.files[0]) {
+        sendFile(e.target.files[0]);
+    }
+});
+document.body.appendChild(fileInputMobile);
+
+const fileShareBtnDesktop = document.getElementById('fileShareBtn');
+if (fileShareBtnDesktop) {
+    fileShareBtnDesktop.addEventListener('click', () => {
+        fileInputDesktop.click();
+    });
+}
+
+// 모바일용 파일 공유 버튼
+const fileShareBtnMobile = document.createElement('button');
+fileShareBtnMobile.textContent = '📎';
+fileShareBtnMobile.style.cssText = 'padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;';
+fileShareBtnMobile.addEventListener('click', () => {
+    fileInputMobile.click();
+});
+
+// Socket 이벤트
+socket.on('file-share', (data) => {
+    const msgEl = document.createElement('div');
+    msgEl.className = 'message other file-message';
+    msgEl.innerHTML = `
+        <div class="sender">${data.sender}</div>
+        <div style="padding: 10px; background: #e3f2fd; border-radius: 8px;">
+            <div>📎 ${data.name} (${formatFileSize(data.size)})</div>
+            <button onclick="downloadFile('${data.data}', '${data.name}')" 
+                style="margin-top: 8px; padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                다운로드
+            </button>
+        </div>
+    `;
+    
+    chatMessages.appendChild(msgEl);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    const msgElModal = msgEl.cloneNode(true);
+    chatMessagesModal.appendChild(msgElModal);
+    chatMessagesModal.scrollTop = chatMessagesModal.scrollHeight;
+});
+
+// 방 만들기 버튼 이벤트 수정
+createRoomBtn.addEventListener('click', async () => {
+    const nick = nicknameInputCreate.value.trim();
+    const title = roomTitleInput.value.trim();
+    let code = roomCodeInputCreate.value.trim();
+    const password = prompt('방의 비밀번호를 설정하시겠습니까?\n(선택사항 - 비워두면 비밀번호 없음)');
+    
+    if (!nick) {
+        alert('닉네임을 입력하세요');
+        return;
+    }
+
+    if (!title) {
+        alert('방 제목을 입력하세요');
+        return;
+    }
+
+    if (!code) {
+        code = generateShortCode();
+    }
+
+    currentRoomPassword = password || null;
+    
+    // 서버에 비밀번호와 함께 방 생성
+    socket.emit('create-room', {
+        roomId: code,
+        nickname: nick,
+        roomTitle: title,
+        password: currentRoomPassword
+    });
+
+    await joinRoom(nick, title, code);
+});
+
+// 방 참가하기 버튼 이벤트 수정
+joinRoomBtn.addEventListener('click', async () => {
+    const nick = nicknameInputJoin.value.trim();
+    const code = roomCodeInputJoin.value.trim();
+    
+    if (!nick) {
+        alert('닉네임을 입력하세요');
+        return;
+    }
+
+    if (!code) {
+        alert('방 코드를 입력하세요');
+        return;
+    }
+
+    // 서버에 방 참가 요청 (비밀번호 검증)
+    socket.emit('verify-room-password', {
+        roomId: code,
+        nickname: nick
+    });
+});
+
+// Socket 이벤트 - 비밀번호 검증 필요
+socket.on('request-password', (data) => {
+    const password = prompt('이 방은 비밀번호로 보호되어 있습니다.\n비밀번호를 입력하세요:');
+    
+    if (password === null) {
+        return; // 취소
+    }
+    
+    socket.emit('submit-password', {
+        roomId: data.roomId,
+        password: password,
+        nickname: nicknameInputJoin.value.trim()
+    });
+});
+
+// Socket 이벤트 - 비밀번호 검증 성공
+socket.on('password-verified', async (data) => {
+    const nick = nicknameInputJoin.value.trim();
+    await joinRoom(nick, '', data.roomId);
+});
+
+// Socket 이벤트 - 비밀번호 검증 실패
+socket.on('password-incorrect', () => {
+    alert('비밀번호가 올바르지 않습니다.');
+});
+
+// Socket 이벤트 - 방이 존재하지 않음
+socket.on('room-not-found', () => {
+    alert('존재하지 않는 방입니다.');
+});
+
+// 호스트 지정 (방의 첫 번째 사용자)
+function setAsHost(userId) {
+    isHost = (userId === socket.id);
+    
+    if (isHost) {
+        console.log('🎙️ 당신은 호스트입니다.');
+        addChatMessage('시스템', '당신이 호스트로 지정되었습니다.');
+        socket.emit('host-assigned', {
+            userId: socket.id,
+            nickname: nickname
+        });
+    }
+}
+
+// 참가자 목록 우클릭 메뉴 추가
+function showParticipantMenu(userId, userName) {
+    if (!isHost || userId === socket.id) return;
+    
+    const menu = document.createElement('div');
+    menu.className = 'participant-menu';
+    menu.style.cssText = `
+        position: fixed;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 10000;
+        min-width: 180px;
+    `;
+    menu.innerHTML = `
+        <div style="padding: 8px;">
+            <button onclick="muteUser('${userId}', '${userName}')" 
+                style="width: 100%; padding: 8px; text-align: left; border: none; background: none; cursor: pointer; border-radius: 4px;">
+                🔇 음소거
+            </button>
+            <button onclick="unmuteUser('${userId}', '${userName}')" 
+                style="width: 100%; padding: 8px; text-align: left; border: none; background: none; cursor: pointer; border-radius: 4px;">
+                🔊 음소거 해제
+            </button>
+            <button onclick="removeUser('${userId}', '${userName}')" 
+                style="width: 100%; padding: 8px; text-align: left; border: none; background: none; cursor: pointer; border-radius: 4px; color: red;">
+                ❌ 강퇴
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(menu);
+    
+    setTimeout(() => {
+        document.body.removeChild(menu);
+    }, 3000);
+}
+
+// 사용자 음소거
+function muteUser(userId, userName) {
+    if (!isHost) return;
+    
+    socket.emit('mute-user', {
+        targetUserId: userId,
+        userName: userName,
+        hostId: socket.id
+    });
+    
+    addChatMessage('시스템', `${userName}님을 음소거했습니다.`);
+}
+
+// 사용자 음소거 해제
+function unmuteUser(userId, userName) {
+    if (!isHost) return;
+    
+    socket.emit('unmute-user', {
+        targetUserId: userId,
+        userName: userName,
+        hostId: socket.id
+    });
+    
+    addChatMessage('시스템', `${userName}님의 음소거를 해제했습니다.`);
+}
+
+// 사용자 강퇴
+function removeUser(userId, userName) {
+    if (!isHost) return;
+    
+    if (!confirm(`${userName}님을 방에서 강퇴하시겠습니까?`)) return;
+    
+    socket.emit('remove-user', {
+        targetUserId: userId,
+        userName: userName,
+        hostId: socket.id
+    });
+    
+    addChatMessage('시스템', `${userName}님이 강퇴되었습니다.`);
+}
+
+// 비디오 래퍼에 컨텍스트 메뉴 추가 (기존 코드 수정)
+function addVideoElement(id, stream, label, isScreen = false) {
+    let wrapper = document.getElementById(`wrapper-${id}`);
+    
+    if (!wrapper) {
+        wrapper = document.createElement('div');
+        wrapper.className = 'video-wrapper';
+        if (isScreen) {
+            wrapper.classList.add('screen-share');
+        }
+        wrapper.id = `wrapper-${id}`;
+        wrapper.dataset.userId = id; // 사용자 ID 저장
+        
+        const video = document.createElement('video');
+        video.id = `video-${id}`;
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.playsInline = true;
+        if (id === 'local' || id === 'local-screen') video.muted = true;
+        
+        if (isScreen) {
+            video.style.transform = 'none';
+        }
+
+        const labelEl = document.createElement('div');
+        labelEl.className = 'video-label';
+        if (isScreen) {
+            labelEl.classList.add('screen-share');
+        }
+        labelEl.textContent = label;
+        
+        const offOverlay = document.createElement('div');
+        offOverlay.className = 'video-off-overlay';
+        offOverlay.id = `overlay-${id}`;
+        offOverlay.innerHTML = `
+            <div class="avatar">${label.charAt(0).toUpperCase()}</div>
+            <div>${label}</div>
+        `;
+        
+        wrapper.appendChild(video);
+        wrapper.appendChild(labelEl);
+        wrapper.appendChild(offOverlay);
+        
+        // 호스트 메뉴 우클릭
+        if (isHost && id !== 'local' && !isScreen) {
+            wrapper.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                showParticipantMenu(id, label);
+            });
+        }
+        
+        videosGrid.appendChild(wrapper);
+    }
+}
+
+socket.on('host-assigned', (data) => {
+    console.log('🎙️', data.nickname, '이(가) 호스트로 지정되었습니다.');
+});
+
+socket.on('mute-user', (data) => {
+    if (data.targetUserId === socket.id) {
+        localStream.getAudioTracks()[0].enabled = false;
+        isMicOn = false;
+        micBtn.classList.remove('active');
+        addChatMessage('시스템', `호스트가 당신을 음소거했습니다.`);
+    }
+});
+
+socket.on('unmute-user', (data) => {
+    if (data.targetUserId === socket.id) {
+        localStream.getAudioTracks()[0].enabled = true;
+        isMicOn = true;
+        micBtn.classList.add('active');
+        addChatMessage('시스템', `호스트가 당신의 음소거를 해제했습니다.`);
+    }
+});
+
+socket.on('remove-user', (data) => {
+    if (data.targetUserId === socket.id) {
+        alert(`호스트가 당신을 방에서 강퇴했습니다.`);
+        location.reload();
+    }
+});
