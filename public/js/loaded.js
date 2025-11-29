@@ -44,7 +44,7 @@ window.addEventListener("load", () => {
     if (code) {
         // 방 코드가 있으면 "방 참가하기" 탭으로 전환
         document.querySelector('[data-tab="join"]').click();
-        document.getElementById('roomCodeInput').value = code;
+        document.getElementById('roomCodeInputJoin').value = code;
     }
 });
 
